@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>짝 맞추기 게임</title>
+    <style>
+        /* 1. 전체 래퍼 사이즈 */
+        #wrapper {
+            width: 1200px;
+            max-width: 100%;
+            margin: 50px auto;
+            text-align: center;
+        }
+
+        /* 2. 카드 사이즈 (260px) 및 원근감 */
+        .card {
+            display: inline-block;
+            margin-right: 20px;
+            margin-bottom: 20px;
+            width: 260px;
+            height: 260px;
+            perspective: 800px; /* 원근감 800px */
+            cursor: pointer;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.8s;
+            transform-style: preserve-3d;
+        }
+
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        /* 3. 카드 앞면/뒷면 공통 설정 */
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 3px solid #633603; /* 갈색 테두리 유지 */
+            backface-visibility: hidden;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* 4. 카드 앞면 (게임 전 보이는 면) */
+        .card-front {
+            /* 설정하신 back.png 경로 유지 */
+            background-image: url('./image/back.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            /* 만약 이미지가 없을 때를 대비한 배경색 */
+            background-color: navy; 
+        }
+
+        /* 5. 카드 뒷면 (맞춰야 할 그림) */
+        .card-back {
+            transform: rotateY(180deg);
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* 6. 팝업창(모달) 스타일 */
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            animation: popUp 0.3s ease-out;
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 2rem;
+        }
+
+        .modal-content button {
+            margin-top: 20px;
+            padding: 10px 30px;
+            font-size: 1.2rem;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        
+        .modal-content button:hover {
+            background: #be5c0b;
+        }
+
+        @keyframes popUp {
+            from { transform: scale(0.7); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .text{
+            margin: 0 auto;
+            width: 800px;
+        }
+    </style>
+</head>
+<body>
+    <div id="wrapper"></div>
+    
+    <div id="modal">
+        <div class="modal-content">
+            <h2>🎉 축하합니다! 🎉</h2>
+            <p>모든 카드를 짝지었습니다.</p>
+            <button onclick="resetGame()">다시 하기</button>
+        </div>
+    </div>
+    <div class="text">
+        <p>*기본적인 카드 뒤집기 코딩은 'SW 라운지'님의 유튜브 강의를 참고하여 작성했으며, 카드 내 캐릭터는 직접 제작했습니다.
+    </div>
+
+    <script>
+        const $wrapper = document.querySelector('#wrapper');
+        const $modal = document.querySelector('#modal'); // ★ 팝업창 요소 선택
+        const total = 12;
+        
+        // ★ 설정하신 이미지 경로 유지
+        const colors = [
+            './image/1.png',
+            './image/2.png',
+            './image/3.png',
+            './image/4.png',
+            './image/5.png',
+            './image/6.png',
+        ];
+        
+        let colorCopy = colors.concat(colors);
+        let shuffled = [];
+        let clicked = [];
+        let completed = [];
+        let clickable = false; 
+
+        function shuffle() {
+            for (let i = 0; colorCopy.length > 0; i += 1) {
+                const randomIndex = Math.floor(Math.random() * colorCopy.length);
+                shuffled = shuffled.concat(colorCopy.splice(randomIndex, 1));
+            }
+        }
+
+        function createCard(i) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            const cardInner = document.createElement('div');
+            cardInner.className = 'card-inner';
+            const cardFront = document.createElement('div');
+            cardFront.className = 'card-front';
+            const cardBack = document.createElement('div');
+            cardBack.className = 'card-back';
+            
+            cardBack.style.backgroundImage = `url(${shuffled[i]})`;
+            
+            cardInner.appendChild(cardFront);
+            cardInner.appendChild(cardBack);
+            card.appendChild(cardInner);
+            
+            return card;
+        }
+
+        function onClickCard() {
+            if (!clickable || completed.includes(this) || clicked[0] === this) {
+                return;
+            }
+
+            this.classList.toggle('flipped');
+            clicked.push(this);
+
+            if (clicked.length !== 2) {
+                return;
+            }
+
+            const firstImg = clicked[0].querySelector('.card-back').style.backgroundImage;
+            const secondImg = clicked[1].querySelector('.card-back').style.backgroundImage;
+
+            if (firstImg === secondImg) {
+                completed.push(clicked[0]);
+                completed.push(clicked[1]);
+                clicked = [];
+
+                if (completed.length === total) {
+                    setTimeout(() => {
+                        // ★ 수정됨: alert 대신 팝업창 보여주기
+                        $modal.classList.add('show');
+                    }, 1000);
+                    return;
+                }
+                return;
+            }
+
+            clickable = false; 
+            setTimeout(() => {
+                clicked[0].classList.remove('flipped');
+                clicked[1].classList.remove('flipped');
+                clicked = [];
+                clickable = true;
+            }, 500); // 틀렸을 때 0.5초 뒤에 뒤집힘
+        }
+
+        function startGame() {
+            shuffle();
+            for (let i = 0; i < total; i += 1) {
+                const card = createCard(i);
+                card.addEventListener('click', onClickCard);
+                $wrapper.appendChild(card);
+            }
+
+            document.querySelectorAll('.card').forEach((card, index) => {
+                setTimeout(() => {
+                    card.classList.add('flipped');
+                }, 1000 + 100 * index);
+            });
+
+            // 10초 뒤에 다시 뒤집힘
+            setTimeout(() => {
+                document.querySelectorAll('.card').forEach((card) => {
+                    card.classList.remove('flipped');
+                });
+                clickable = true;
+            }, 10000);
+        }
+
+        function resetGame() {
+            // ★ 게임 리셋 시 팝업창 닫기 추가
+            $modal.classList.remove('show');
+
+            $wrapper.innerHTML = '';
+            colorCopy = colors.concat(colors);
+            shuffled = [];
+            completed = [];
+            clickable = false;
+            startGame();
+        }
+
+        startGame();
+    </script>
+</body>
+</html>
